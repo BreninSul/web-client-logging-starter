@@ -64,7 +64,7 @@ tasks.compileKotlin {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux:$springBootVersion")
     compileOnly("org.springframework.boot:spring-boot-starter:$springBootVersion")
-    api("io.github.breninsul:http-logging-commons:1.1.1")
+    api("io.github.breninsul:http-logging-commons:1.2.0")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 

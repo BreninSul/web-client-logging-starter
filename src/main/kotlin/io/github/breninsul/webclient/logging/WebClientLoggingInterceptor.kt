@@ -41,9 +41,17 @@ import java.util.logging.Level
 import java.util.logging.Logger
 import kotlin.jvm.optionals.getOrNull
 
-
+/**
+ * Provides logging functionality for HTTP requests and responses.
+ *
+ * @property properties Configuration properties for HTTP logging.
+ * @param uriMaskers List of URI masking strategies.
+ * @param requestBodyMaskers List of request body masking strategies.
+ * @param responseBodyMaskers List of response body masking strategies.
+ */
 open class WebClientLoggingInterceptor(
     protected open val properties: WebClientLoggerProperties,
+    uriMaskers: List<WebClientUriMasking>,
     requestBodyMaskers: List<WebClientRequestBodyMasking>,
     responseBodyMaskers: List<WebClientResponseBodyMasking>,
 ) : ExchangeFilterFunction, Ordered {
@@ -52,7 +60,7 @@ open class WebClientLoggingInterceptor(
      *
      * @property helper The HTTP logging helper used for logging requests and responses.
      */
-    protected open val helper = HttpLoggingHelper("WebClient", properties, requestBodyMaskers, responseBodyMaskers)
+    protected open val helper = HttpLoggingHelper("WebClient", properties,uriMaskers, requestBodyMaskers, responseBodyMaskers)
 
     /**
      * Constructs the log message for an HTTP client response.

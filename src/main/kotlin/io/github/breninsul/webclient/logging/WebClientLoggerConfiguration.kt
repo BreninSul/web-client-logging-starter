@@ -28,6 +28,7 @@ package io.github.breninsul.webclient.logging
 import io.github.breninsul.logging.HttpMaskSettings
 import io.github.breninsul.logging.HttpRegexFormUrlencodedBodyMasking
 import io.github.breninsul.logging.HttpRegexJsonBodyMasking
+import io.github.breninsul.logging.HttpRegexUriMasking
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -49,7 +50,8 @@ open class WebClientLoggerConfiguration {
             webClientResponseRegexJsonBodyMasking(properties.request.mask),
             webClientResponseFormUrlencodedBodyMasking(properties.request.mask)
         )
-        return WebClientLoggingInterceptor(properties,requestMaskers,responseMaskers)
+        val uriMaskers= listOf(webClientUriMasking(properties.request.mask))
+        return WebClientLoggingInterceptor(properties,uriMaskers,requestMaskers,responseMaskers)
     }
 
 
@@ -69,5 +71,9 @@ open class WebClientLoggerConfiguration {
 
     fun webClientResponseFormUrlencodedBodyMasking(properties: HttpMaskSettings):WebClientResponseBodyMasking{
         return WebClientResponseBodyMaskingDelegate(HttpRegexFormUrlencodedBodyMasking(properties.maskJsonBodyKeys))
+    }
+
+    fun webClientUriMasking(properties: HttpMaskSettings):WebClientUriMasking{
+        return WebClientUriMaskingDelegate(HttpRegexUriMasking(properties.maskQueryParameters))
     }
 }

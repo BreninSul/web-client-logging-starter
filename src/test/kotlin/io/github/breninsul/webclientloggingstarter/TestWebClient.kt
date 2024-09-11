@@ -18,7 +18,7 @@ open class TestWebClient {
             // Create a new client
             val client=getWebClientLogging()
 
-                client.post().uri("https://test-c.free.beeceptor.com?id=12323&id2=dsfsdf")
+                client.post().uri("https://test-c.free.beeceptor.com?id=12323&id2=dsfsdf&token=someToken")
                     .bodyValue(mapOf("someKey" to "someval"))
                     .retrieve()
                     .toEntity(String::class.java)
