@@ -33,6 +33,8 @@ import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
+import org.springframework.core.io.buffer.DataBufferFactory
+import org.springframework.core.io.buffer.DefaultDataBufferFactory
 
 
 @ConditionalOnProperty(value = ["web-client.logging-interceptor.enabled"], havingValue = "true", matchIfMissing = true)
@@ -41,7 +43,7 @@ import org.springframework.context.annotation.Bean
 open class WebClientLoggerConfiguration {
 
     @Bean
-    fun registerWebClientLoggingInterceptor(properties: WebClientLoggerProperties): WebClientLoggingInterceptor {
+    open fun registerWebClientLoggingInterceptor(properties: WebClientLoggerProperties): WebClientLoggingInterceptor {
         val requestMaskers= listOf(
             webClientRequestRegexJsonBodyMasking(properties.request.mask),
             webClientRequestFormUrlencodedBodyMasking(properties.request.mask)
@@ -51,29 +53,31 @@ open class WebClientLoggerConfiguration {
             webClientResponseFormUrlencodedBodyMasking(properties.request.mask)
         )
         val uriMaskers= listOf(webClientUriMasking(properties.request.mask))
-        return WebClientLoggingInterceptor(properties,uriMaskers,requestMaskers,responseMaskers)
+        return WebClientLoggingInterceptor(properties, dataBufferFactory(),uriMaskers,requestMaskers,responseMaskers)
     }
 
+    open fun dataBufferFactory() = DefaultDataBufferFactory()
 
-    fun webClientRequestRegexJsonBodyMasking(properties: HttpMaskSettings):WebClientRequestBodyMasking{
+
+    open fun webClientRequestRegexJsonBodyMasking(properties: HttpMaskSettings):WebClientRequestBodyMasking{
         return WebClientRequestBodyMaskingDelegate(HttpRegexJsonBodyMasking(properties.maskJsonBodyKeys))
     }
 
 
-    fun webClientResponseRegexJsonBodyMasking(properties: HttpMaskSettings):WebClientResponseBodyMasking{
+    open fun webClientResponseRegexJsonBodyMasking(properties: HttpMaskSettings):WebClientResponseBodyMasking{
         return WebClientResponseBodyMaskingDelegate(HttpRegexJsonBodyMasking(properties.maskJsonBodyKeys))
     }
 
 
-    fun webClientRequestFormUrlencodedBodyMasking(properties: HttpMaskSettings):WebClientRequestBodyMasking{
+    open fun webClientRequestFormUrlencodedBodyMasking(properties: HttpMaskSettings):WebClientRequestBodyMasking{
         return WebClientRequestBodyMaskingDelegate(HttpRegexFormUrlencodedBodyMasking(properties.maskJsonBodyKeys))
     }
 
-    fun webClientResponseFormUrlencodedBodyMasking(properties: HttpMaskSettings):WebClientResponseBodyMasking{
+    open fun webClientResponseFormUrlencodedBodyMasking(properties: HttpMaskSettings):WebClientResponseBodyMasking{
         return WebClientResponseBodyMaskingDelegate(HttpRegexFormUrlencodedBodyMasking(properties.maskJsonBodyKeys))
     }
 
-    fun webClientUriMasking(properties: HttpMaskSettings):WebClientUriMasking{
+    open fun webClientUriMasking(properties: HttpMaskSettings):WebClientUriMasking{
         return WebClientUriMaskingDelegate(HttpRegexUriMasking(properties.maskQueryParameters))
     }
 }

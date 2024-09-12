@@ -27,6 +27,7 @@ package io.github.breninsul.webclient.logging
 import io.github.breninsul.logging.HttpLoggingHelper
 import org.springframework.core.Ordered
 import org.springframework.core.io.buffer.DataBuffer
+import org.springframework.core.io.buffer.DataBufferFactory
 import org.springframework.core.io.buffer.DataBufferUtils
 import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.client.ClientRequest
@@ -44,13 +45,14 @@ import kotlin.jvm.optionals.getOrNull
 /**
  * Provides logging functionality for HTTP requests and responses.
  *
- * @property properties Configuration properties for HTTP logging.
  * @param uriMaskers List of URI masking strategies.
  * @param requestBodyMaskers List of request body masking strategies.
  * @param responseBodyMaskers List of response body masking strategies.
+ * @property properties Configuration properties for HTTP logging.
  */
 open class WebClientLoggingInterceptor(
     protected open val properties: WebClientLoggerProperties,
+    protected open val dataBufferFactory: DataBufferFactory,
     uriMaskers: List<WebClientUriMasking>,
     requestBodyMaskers: List<WebClientRequestBodyMasking>,
     responseBodyMaskers: List<WebClientResponseBodyMasking>,
@@ -58,16 +60,18 @@ open class WebClientLoggingInterceptor(
     /**
      * Provides logging functionality for HTTP requests and responses.
      *
-     * @property helper The HTTP logging helper used for logging requests and responses.
+     * @property helper The HTTP logging helper used for logging requests and
+     *    responses.
      */
-    protected open val helper = HttpLoggingHelper("WebClient", properties,uriMaskers, requestBodyMaskers, responseBodyMaskers)
+    protected open val helper = HttpLoggingHelper("WebClient", properties, uriMaskers, requestBodyMaskers, responseBodyMaskers)
 
     /**
      * Constructs the log message for an HTTP client response.
      *
      * @param response The HTTP client response received from the server.
      * @param request The original HTTP client request sent to the server.
-     * @param contentSupplier A supplier that provides the response body content.
+     * @param contentSupplier A supplier that provides the response body
+     *    content.
      * @return A log message representing the HTTP response.
      */
     protected open fun constructRsBody(
@@ -81,7 +85,7 @@ open class WebClientLoggingInterceptor(
                 helper.getHeaderLine(type),
                 helper.getIdString(response.logPrefix(), type),
                 helper.getUriString(request.logResponseUri(), "${response.statusCode().value()} ${request.method().name()} ${request.url()}", type),
-                helper.getTookString(request.logResponseTookTime(),  request.attribute(START_TIME_ATTRIBUTE).orElse(0L) as Long, type),
+                helper.getTookString(request.logResponseTookTime(), request.attribute(START_TIME_ATTRIBUTE).orElse(0L) as Long, type),
                 helper.getHeadersString(request.logResponseHeaders(), response.headers().asHttpHeaders(), type),
                 helper.getBodyString(request.logResponseBody(), contentSupplier, type),
                 helper.getFooterLine(type),
@@ -95,17 +99,17 @@ open class WebClientLoggingInterceptor(
      *
      * @param response The HTTP client response received from the server.
      * @param request The original HTTP client request sent to the server.
-     * @param contentSupplier A supplier that provides the response body content.
+     * @param contentSupplier A supplier that provides the response body
+     *    content.
      */
     protected open fun logResponse(
         response: ClientResponse,
         request: ClientRequest,
         contentSupplier: Supplier<String?>,
     ) {
-        val logBody=constructRsBody(response,request,contentSupplier)
+        val logBody = constructRsBody(response, request, contentSupplier)
         logger.log(helper.loggingLevel, logBody)
     }
-
 
 
     /**
@@ -127,21 +131,21 @@ open class WebClientLoggingInterceptor(
             .from(request)
             .attribute(START_TIME_ATTRIBUTE, startTime).build()
         val loggedRequest = ClientRequest.from(requestWithStartTime)
-            .body(WebClientLoggingRequestBodyInserter(requestWithStartTime,properties,helper)).build()
+            .body(WebClientLoggingRequestBodyInserter(requestWithStartTime,dataBufferFactory, properties, helper)).build()
 
         val responseMono =
             next.exchange(loggedRequest)
                 .map { response ->
                     val contentLength = response.headers().contentLength().orElse(0)
-                    val bodyExist=contentLength>0
+                    val bodyExist = contentLength > 0
                     val haveToLogBody = loggedRequest.logResponseBody() ?: properties.response.bodyIncluded
 
                     if (contentLength > properties.response.maxBodySize) {
-                        logResponse(response,loggedRequest) { helper.constructTooBigMsg(contentLength) }
-                        return@map  response
+                        logResponse(response, loggedRequest) { helper.constructTooBigMsg(contentLength) }
+                        return@map response
                     } else if (!haveToLogBody || !bodyExist) {
                         helper.constructRqBody(loggedRequest) { "" }
-                        return@map  response
+                        return@map response
                     }
                     //Have to log body (and it's not too big or empty)
                     return@map response
@@ -150,12 +154,13 @@ open class WebClientLoggingInterceptor(
                             //Join body
                             DataBufferUtils.join(bytesFlux)
                                 .publishOn(Schedulers.boundedElastic())
-                                .map dataBufferLog@ {dataBuffer->
-                                    val contentType: MediaType?= response.headers().contentType().getOrNull()
+                                .map dataBufferLog@{ dataBuffer ->
+                                    val contentType: MediaType? = response.headers().contentType().getOrNull()
                                     val charset = contentType?.charset ?: Charset.defaultCharset()
                                     //log body
-                                    logResponse(response,loggedRequest) { getDataBufferContent(dataBuffer)?.let { String(it, charset) } }
-                                    return@dataBufferLog dataBuffer
+                                    val dataBufferContent = getDataBufferContent(dataBuffer)
+                                    logResponse(response, loggedRequest) { dataBufferContent.first?.let { String(it, charset) } }
+                                    return@dataBufferLog dataBufferContent.second
                                 }
                                 .flux()
                         }.build()
@@ -163,9 +168,9 @@ open class WebClientLoggingInterceptor(
         return responseMono
     }
 
-    protected open fun getDataBufferContent(dataBuffer: DataBuffer?) = dataBuffer.getContentBytes()
+    protected open fun getDataBufferContent(dataBuffer: DataBuffer?) = dataBuffer.getContentBytes(dataBufferFactory)
 
-    companion object{
+    companion object {
         val START_TIME_ATTRIBUTE = "START_TIME_ATTRIBUTE"
         val logger: Logger = Logger.getLogger(WebClientLoggingInterceptor::class.java.name)
     }

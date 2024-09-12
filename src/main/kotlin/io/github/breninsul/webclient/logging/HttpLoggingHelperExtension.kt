@@ -3,8 +3,14 @@ package io.github.breninsul.webclient.logging
 import io.github.breninsul.logging.HttpLoggingHelper
 import io.github.breninsul.webclient.logging.WebClientLoggingInterceptor.Companion.START_TIME_ATTRIBUTE
 import org.springframework.core.io.buffer.DataBuffer
+import org.springframework.core.io.buffer.DataBufferFactory
+import org.springframework.core.io.buffer.DataBufferUtils
+import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.web.reactive.function.client.ClientRequest
+import java.nio.file.Files
 import java.util.function.Supplier
+import kotlin.io.path.fileSize
+import kotlin.io.path.outputStream
 
 /**
  * Constructs the log message for an HTTP client request.
@@ -45,19 +51,13 @@ fun HttpLoggingHelper.constructRqBody(
         this.readableByteCount() - this.readPosition()
     }
 
-/**
- * Retrieves the content bytes from the nullable `DataBuffer`.
- * If the content length of the `DataBuffer` is zero, it returns null.
- *
- * @return A `ByteArray` containing the content bytes of the `DataBuffer`, or null if the content length is zero.
- */
-fun DataBuffer?.getContentBytes(): ByteArray? {
+
+fun DataBuffer?.getContentBytes(dataBufferFactory: DataBufferFactory): Pair<ByteArray?,DataBuffer?> {
     val contentLength = this.countContentLength()
-    if (contentLength == 0) {
-        return null
+    if (this==null||contentLength == 0) {
+        return Pair(null,this)
     }
-    val position = this!!.readPosition()
-    val body = this.asInputStream().readAllBytes()
-    this.readPosition(position)
-    return body
+    val body = this.asInputStream(true).use {it.readAllBytes()}
+    return body to dataBufferFactory.wrap(body)
 }
+

@@ -26,6 +26,8 @@
 package io.github.breninsul.webclient.logging
 
 import io.github.breninsul.logging.HttpLoggingHelper
+import org.springframework.core.io.buffer.DataBufferFactory
+import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.http.client.reactive.ClientHttpRequest
 import org.springframework.web.reactive.function.BodyInserter
 import org.springframework.web.reactive.function.client.ClientRequest
@@ -42,6 +44,7 @@ import java.util.function.Supplier
  */
 open class WebClientLoggingRequestBodyInserter(
     protected open val request: ClientRequest,
+    protected open val dataBufferFactory: DataBufferFactory ,
     protected open val properties: WebClientLoggerProperties,
     protected open val helper: HttpLoggingHelper,
 ) : BodyInserter<Any, ClientHttpRequest> {
@@ -63,9 +66,8 @@ open class WebClientLoggingRequestBodyInserter(
         context: BodyInserter.Context,
     ): Mono<Void> {
         val haveToLogBody = request.logRequestBody() ?: properties.request.bodyIncluded
-
-        if  (!haveToLogBody) {
-            logRequest(request){ "" }
+        if (!haveToLogBody) {
+            logRequest(request) { "" }
             return delegate.insert(outputMessage, context)
         } else {
             return delegate.insert(
@@ -73,6 +75,7 @@ open class WebClientLoggingRequestBodyInserter(
                     request,
                     outputMessage,
                     helper,
+                    dataBufferFactory,
                     properties
                 ),
                 context,
@@ -81,7 +84,7 @@ open class WebClientLoggingRequestBodyInserter(
     }
 
     protected open fun logRequest(request: ClientRequest, contentSupplier: Supplier<String?>) {
-        val logBody=helper.constructRqBody(request,contentSupplier)
+        val logBody = helper.constructRqBody(request, contentSupplier)
         WebClientLoggingInterceptor.logger.log(helper.loggingLevel, logBody)
     }
 }

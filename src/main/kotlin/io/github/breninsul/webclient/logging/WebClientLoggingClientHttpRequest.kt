@@ -28,6 +28,8 @@ package io.github.breninsul.webclient.logging
 import io.github.breninsul.logging.HttpLoggingHelper
 import org.reactivestreams.Publisher
 import org.springframework.core.io.buffer.DataBuffer
+import org.springframework.core.io.buffer.DataBufferFactory
+import org.springframework.core.io.buffer.DefaultDataBufferFactory
 import org.springframework.http.MediaType
 import org.springframework.http.client.reactive.ClientHttpRequest
 import org.springframework.web.reactive.function.client.ClientRequest
@@ -41,7 +43,8 @@ open class WebClientLoggingClientHttpRequest(
     protected open val request: ClientRequest,
     protected open val delegate: ClientHttpRequest,
     protected open val helper: HttpLoggingHelper,
-    protected open val properties: WebClientLoggerProperties
+    protected open val dataBufferFactory:DataBufferFactory,
+    protected open val properties: WebClientLoggerProperties,
 ) : ClientHttpRequest by delegate {
 
     /**
@@ -65,15 +68,17 @@ open class WebClientLoggingClientHttpRequest(
             return delegate.writeWith(
                 Mono.from(body)
                     .publishOn(Schedulers.boundedElastic())
-                    .doOnNext { dataBuffer ->
+                    .mapNotNull { dataBuffer ->
                         val contentType: MediaType? = headers.contentType
                         val charset = contentType?.charset ?: Charset.defaultCharset()
-                        logRequest(request) { getDataBufferContent(dataBuffer)?.let { String(it, charset) } }
+                        val dataBufferContent = getDataBufferContent(dataBuffer)
+                        logRequest(request) { dataBufferContent.first?.let { String(it, charset) } }
+                        return@mapNotNull dataBufferContent.second
                     },
             )
         }
     }
-    protected open fun getDataBufferContent(dataBuffer: DataBuffer?) = dataBuffer.getContentBytes()
+    protected open fun getDataBufferContent(dataBuffer: DataBuffer?) = dataBuffer.getContentBytes(dataBufferFactory)
 
     protected open fun logRequest(request: ClientRequest, contentSupplier: Supplier<String?>) {
         val logBody=helper.constructRqBody(request,contentSupplier)
